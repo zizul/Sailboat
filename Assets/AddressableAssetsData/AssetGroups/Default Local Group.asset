@@ -1,0 +1,138 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Default Local Group
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Default Local Group
+  m_GUID: 01cf9e25131208942b6abb1026bd6224
+  m_SerializeEntries:
+  - m_GUID: 0354479538a422a4ebfba32815f9326b
+    m_Address: mauritania_hut
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0bf41208d5c65ff4ab179281d8361980
+    m_Address: mauritania_tile_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0fb63aa1c6fae6e4d97c642c40782a82
+    m_Address: mauritania_tile_04
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 278c0478a35a9bf4eaae05cd73ca6a61
+    m_Address: mauritania_rock_set_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2b1c8aa2e5fa4364885b94da8e756647
+    m_Address: mauritania_tile_07
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3f317689a355fba41b9a6a3f9bf5f3d3
+    m_Address: mauritania_rock_set_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 442c2d7cebb8d8d4e905c69037fc0b81
+    m_Address: mauritania_tile_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 49d8814ced7610844acde9ae57b0f326
+    m_Address: mauritania_vegetation_set_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68650c38e034c5a4ca877b9375661926
+    m_Address: mauritania_grass_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 79bc8673043ebe146b9e496e7b4f1d0c
+    m_Address: mauritania_rock_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80e59b4df02df28499d0fc2bc4350b26
+    m_Address: mauritania_tile_05
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8393838a5a97f0443999566b0e35059f
+    m_Address: mauritania_tile_06
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9116ae3ed54f176408083e9aa8cd357b
+    m_Address: mauritania_plant_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 93e3b4bbedafd164d8ba1d8c8859c3f5
+    m_Address: mauritania_tile_03
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9c2b714c05be4b44fb64bc60e69eba3e
+    m_Address: mauritania_background_water
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a563157a4ceeb234d8d2b8bbbd4d5ab4
+    m_Address: mauritania_boat
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a9e5a049f689cab46be5f32cd154c4a0
+    m_Address: mauritania_rock_set_03
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b35c3520e51f16b4b926de456ba3442b
+    m_Address: mauritania_palm
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d732ac8b5d3d47548814bd705fbe6b4d
+    m_Address: tile_water_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: df809b48b58e584468231963047f5650
+    m_Address: mauritania_rock_03
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e64f4c88ce5e5b04494ed2f910f74e52
+    m_Address: mauritania_vegetation_set_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f2d92782d314589408b05dce455e8835
+    m_Address: mauritania_rock_02
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f94efc3b08bcea34381f82052a789817
+    m_Address: mauritania_grass_01
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: ab66096bfed49334c8067a1a8eda8f74, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 4267a2ddd2091fb4e999a22684eae4ae, type: 2}
+    - {fileID: 11400000, guid: 29079145cc50e474b934bd2d7c57c908, type: 2}
