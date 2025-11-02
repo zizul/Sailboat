@@ -15,7 +15,7 @@ namespace SailboatGame.Camera
         [SerializeField] private Vector3 offset = new Vector3(0, 15, -10);
         [SerializeField] private float followSpeed = 5f;
         [SerializeField] private float rotationSpeed = 3f;
-        [SerializeField] private bool lookAtTarget = true;
+        [SerializeField] private bool lookAtTarget = false;
 
         [Header("Boundaries (Optional)")]
         [SerializeField] private bool useBoundaries = false;

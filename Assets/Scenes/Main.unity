@@ -398,7 +398,7 @@ MonoBehaviour:
   offset: {x: 0, y: 5, z: -4}
   followSpeed: 5
   rotationSpeed: 3
-  lookAtTarget: 1
+  lookAtTarget: 0
   useBoundaries: 0
   minBounds: {x: -100, y: -100}
   maxBounds: {x: 100, y: 100}
