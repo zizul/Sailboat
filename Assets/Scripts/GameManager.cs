@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using UnityEngine;
 using SailboatGame.Core;
@@ -9,6 +10,7 @@ using SailboatGame.Boat;
 using SailboatGame.Camera;
 using SailboatGame.Visualization;
 using SailboatGame.Interfaces;
+using Debug = UnityEngine.Debug;
 
 namespace SailboatGame
 {
@@ -125,43 +127,63 @@ namespace SailboatGame
         /// </summary>
         private async Awaitable InitializeGameAsync(CancellationToken cancellationToken)
         {
+            Stopwatch totalStopwatch = Stopwatch.StartNew();
             Debug.Log("GameManager: Initializing game...");
 
             // Load map
+            Stopwatch loadMapStopwatch = Stopwatch.StartNew();
             if (!await LoadMapAsync(initialMapIndex, cancellationToken))
             {
                 Debug.LogError("GameManager: Failed to load initial map");
                 return;
             }
+            loadMapStopwatch.Stop();
+            Debug.Log($"GameManager: LoadMapAsync took {loadMapStopwatch.ElapsedMilliseconds}ms");
 
             // Generate map
+            Stopwatch generateMapStopwatch = Stopwatch.StartNew();
             if (!await mapGenerator.GenerateMapAsync(currentMapData, cancellationToken))
             {
                 Debug.LogError("GameManager: Failed to generate map");
                 return;
             }
+            generateMapStopwatch.Stop();
+            Debug.Log($"GameManager: GenerateMapAsync took {generateMapStopwatch.ElapsedMilliseconds}ms");
 
             // Find valid boat start position
+            Stopwatch findStartPosStopwatch = Stopwatch.StartNew();
             HexCoordinates validStartPos = FindValidBoatStartPosition();
+            findStartPosStopwatch.Stop();
+            Debug.Log($"GameManager: FindValidBoatStartPosition took {findStartPosStopwatch.ElapsedMilliseconds}ms");
 
             // Spawn boat
+            Stopwatch spawnBoatStopwatch = Stopwatch.StartNew();
             await SpawnBoatAsync(validStartPos, cancellationToken);
+            spawnBoatStopwatch.Stop();
+            Debug.Log($"GameManager: SpawnBoatAsync took {spawnBoatStopwatch.ElapsedMilliseconds}ms");
 
             // Setup camera
+            Stopwatch setupCameraStopwatch = Stopwatch.StartNew();
             if (cameraController != null && boatController != null)
             {
                 cameraController.SetTarget(boatController.transform);
                 cameraController.SnapToTarget();
             }
+            setupCameraStopwatch.Stop();
+            Debug.Log($"GameManager: Camera setup took {setupCameraStopwatch.ElapsedMilliseconds}ms");
 
             // Subscribe to input events
+            Stopwatch subscribeEventsStopwatch = Stopwatch.StartNew();
             if (inputHandler != null)
             {
                 inputHandler.OnTileClicked += HandleTileClicked;
             }
+            subscribeEventsStopwatch.Stop();
+            Debug.Log($"GameManager: Event subscription took {subscribeEventsStopwatch.ElapsedMilliseconds}ms");
 
             isInitialized = true;
-            Debug.Log("GameManager: Initialization complete");
+            totalStopwatch.Stop();
+            Debug.Log($"GameManager: Initialization complete. Total time: {totalStopwatch.ElapsedMilliseconds}ms ({totalStopwatch.Elapsed.TotalSeconds:F2}s)");
         }
 
         /// <summary>

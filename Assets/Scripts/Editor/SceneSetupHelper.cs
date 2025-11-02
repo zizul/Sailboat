@@ -43,9 +43,13 @@ namespace SailboatGame.Editor
             GUILayout.Space(20);
             GUILayout.Label("Instructions:", EditorStyles.boldLabel);
             GUILayout.Label("1. Click 'Create Complete Scene'", EditorStyles.wordWrappedLabel);
-            GUILayout.Label("2. Assign map TextAssets in GameManager", EditorStyles.wordWrappedLabel);
-            GUILayout.Label("3. Configure Addressables with prefab keys", EditorStyles.wordWrappedLabel);
-            GUILayout.Label("4. Play!", EditorStyles.wordWrappedLabel);
+            GUILayout.Label("2. Configure Addressables with prefab keys", EditorStyles.wordWrappedLabel);
+            GUILayout.Label("3. Play!", EditorStyles.wordWrappedLabel);
+            GUILayout.Space(10);
+            GUILayout.Label("Auto-configured:", EditorStyles.boldLabel);
+            GUILayout.Label("• Map assets (map1.txt, maze.txt)", EditorStyles.wordWrappedLabel);
+            GUILayout.Label("• PathVisualizer (line width, height, material)", EditorStyles.wordWrappedLabel);
+            GUILayout.Label("• MapGenerator (hex size = 0.58)", EditorStyles.wordWrappedLabel);
         }
 
         private static void CreateGameManager()
@@ -84,6 +88,7 @@ namespace SailboatGame.Editor
             
             GameObject pathVisualizerObj = new GameObject("PathVisualizer");
             pathVisualizerObj.transform.SetParent(systemsContainer.transform);
+            pathVisualizerObj.transform.rotation = Quaternion.Euler(90, 0, 0);
             var pathVisualizer = pathVisualizerObj.AddComponent<Visualization.PathVisualizer>();
             
             GameObject performanceOptimizerObj = new GameObject("PerformanceOptimizer");
@@ -95,6 +100,7 @@ namespace SailboatGame.Editor
             UnityEditor.SerializedObject mapGenSO = new UnityEditor.SerializedObject(mapGenerator);
             mapGenSO.FindProperty("hexGrid").objectReferenceValue = hexGrid;
             mapGenSO.FindProperty("assetLoader").objectReferenceValue = assetLoader;
+            mapGenSO.FindProperty("hexSize").floatValue = 0.58f;
             mapGenSO.ApplyModifiedProperties();
             
             // PathfindingSystem dependencies
@@ -110,6 +116,20 @@ namespace SailboatGame.Editor
             // PathVisualizer dependencies
             UnityEditor.SerializedObject pathVisSO = new UnityEditor.SerializedObject(pathVisualizer);
             pathVisSO.FindProperty("hexGrid").objectReferenceValue = hexGrid;
+            pathVisSO.FindProperty("lineWidth").floatValue = 0.07f;
+            pathVisSO.FindProperty("lineHeightOffset").floatValue = 0f;
+            
+            // Load Default-Line material
+            Material defaultLineMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-Line.mat");
+            if (defaultLineMaterial != null)
+            {
+                pathVisSO.FindProperty("lineMaterial").objectReferenceValue = defaultLineMaterial;
+            }
+            else
+            {
+                Debug.LogWarning("Default-Line material not found. PathVisualizer lineMaterial not set.");
+            }
+            
             pathVisSO.ApplyModifiedProperties();
             
             // PerformanceOptimizer dependencies
@@ -126,6 +146,24 @@ namespace SailboatGame.Editor
             gmSO.FindProperty("pathfindingSystem").objectReferenceValue = pathfindingSystem;
             gmSO.FindProperty("inputHandler").objectReferenceValue = inputHandler;
             gmSO.FindProperty("pathVisualizer").objectReferenceValue = pathVisualizer;
+            
+            // Load and assign map assets
+            TextAsset map1 = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Maps/map1.txt");
+            TextAsset maze = AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/Maps/maze.txt");
+            
+            if (map1 != null && maze != null)
+            {
+                UnityEditor.SerializedProperty mapAssetsProperty = gmSO.FindProperty("mapAssets");
+                mapAssetsProperty.arraySize = 2;
+                mapAssetsProperty.GetArrayElementAtIndex(0).objectReferenceValue = map1;
+                mapAssetsProperty.GetArrayElementAtIndex(1).objectReferenceValue = maze;
+                Debug.Log("Map assets (map1.txt and maze.txt) assigned to GameManager.");
+            }
+            else
+            {
+                Debug.LogWarning("Could not find map1.txt or maze.txt in Assets/Maps/. Please assign manually.");
+            }
+            
             gmSO.ApplyModifiedProperties();
 
             Selection.activeGameObject = gameManagerObj;
@@ -189,7 +227,7 @@ namespace SailboatGame.Editor
             eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
             eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
 
-            Debug.Log("Complete scene setup finished! Remember to assign map assets in GameManager.");
+            Debug.Log("Complete scene setup finished! Maps, PathVisualizer settings, and MapGenerator hex size auto-configured.");
         }
     }
 }

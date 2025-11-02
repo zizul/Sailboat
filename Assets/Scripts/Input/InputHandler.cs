@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using SailboatGame.Core;
+using SailboatGame.Interfaces;
 
 namespace SailboatGame.Input
 {
@@ -9,7 +10,7 @@ namespace SailboatGame.Input
     /// Handles input for both PC (mouse) and mobile (touch) platforms.
     /// Provides unified interface for map interaction.
     /// </summary>
-    public class InputHandler : MonoBehaviour
+    public class InputHandler : IInputHandler 
     {
         [Header("References")]
         [SerializeField] private UnityEngine.Camera mainCamera;
@@ -20,8 +21,10 @@ namespace SailboatGame.Input
         [SerializeField] private float raycastDistance = 1000f;
         [SerializeField] private bool blockInputOverUI = true;
 
-        public event Action<HexCoordinates> OnTileClicked;
-        public event Action<Vector3> OnWorldPositionClicked;
+        //public event Action<HexCoordinates> OnTileClicked;
+        //public event Action<Vector3> OnWorldPositionClicked;
+        public override event Action<HexCoordinates> OnTileClicked;
+        public override event Action<Vector3> OnWorldPositionClicked;
 
         private void Awake()
         {
@@ -137,7 +140,7 @@ namespace SailboatGame.Input
         /// <summary>
         /// Enables or disables input handling.
         /// </summary>
-        public void SetEnabled(bool enabled)
+        public override void SetEnabled(bool enabled)
         {
             this.enabled = enabled;
         }
