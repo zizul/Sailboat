@@ -17,10 +17,9 @@ namespace SailboatGame.Visualization
         [SerializeField] private LineRenderer lineRenderer;
 
         [Header("Line Settings")]
-        [SerializeField] private float lineWidth = 0.2f;
-        [SerializeField] private float lineHeightOffset = 0.5f;
-        [SerializeField] private Color lineColor = new Color(0, 1, 1, 0.8f);
-        [SerializeField] private AnimationCurve lineWidthCurve = AnimationCurve.Constant(0, 1, 1);
+        [SerializeField] private float lineWidth = 0.1f;
+        [SerializeField] private float lineHeightOffset = 0.05f;
+        [SerializeField] private Color lineColor = new Color(0, 1, 0, 1f);
 
         [Header("Tile Highlight Settings")]
         [SerializeField] private bool highlightTiles = true;
@@ -40,8 +39,7 @@ namespace SailboatGame.Visualization
             // Setup line renderer
             if (lineRenderer == null)
             {
-                lineRenderer = gameObject.AddComponent<LineRenderer>();
-            }
+                lineRenderer = gameObject.AddComponent<LineRenderer>();            }
 
             ConfigureLineRenderer();
         }
@@ -65,10 +63,9 @@ namespace SailboatGame.Visualization
         private void ConfigureLineRenderer()
         {
             if (lineRenderer == null) return;
-
             lineRenderer.startWidth = lineWidth;
             lineRenderer.endWidth = lineWidth;
-            lineRenderer.widthCurve = lineWidthCurve;
+            //lineRenderer.widthCurve = lineWidthCurve;
             lineRenderer.startColor = lineColor;
             lineRenderer.endColor = lineColor;
             lineRenderer.numCapVertices = 5;
@@ -92,6 +89,8 @@ namespace SailboatGame.Visualization
         public override void ShowPath(List<HexCoordinates> path)
         {
             ClearPath();
+
+            ConfigureLineRenderer();
 
             if (path == null || path.Count == 0)
             {
