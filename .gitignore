@@ -84,13 +84,6 @@ ehthumbs.db
 Thumbs.db
 Thumbs.db.meta
 
-# Video files (usually too large for git)
-*.mp4
-*.mov
-*.avi
-*.flv
-*.wmv
-
 # Rider
 .idea/
 
