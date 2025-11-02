@@ -28,9 +28,16 @@ namespace SailboatGame.Performance
         [SerializeField] private bool enableMemoryOptimization = true;
         [SerializeField] private float memoryCleanupInterval = 30f;
 
+        [Header("Performance Logging")]
+        [SerializeField] private bool enablePerformanceLogging = true;
+        [SerializeField] private float performanceLogInterval = 5f;
+
         private float nextCullingCheck;
         private float nextMemoryCleanup;
+        private float nextPerformanceLog;
         private HashSet<GameObject> culledObjects = new HashSet<GameObject>();
+        private int tilesActivated = 0;
+        private int tilesDeactivated = 0;
 
         private void Start()
         {
@@ -41,6 +48,10 @@ namespace SailboatGame.Performance
 
             // Set quality settings for mobile
             OptimizeQualitySettings();
+
+            // Perform initial culling pass to activate visible tiles
+            // This ensures tiles are loaded immediately after map generation
+            PerformDistanceCulling();
         }
 
         private void Update()
@@ -59,6 +70,13 @@ namespace SailboatGame.Performance
             {
                 nextMemoryCleanup = currentTime + memoryCleanupInterval;
                 PerformMemoryCleanup();
+            }
+
+            // Performance logging
+            if (enablePerformanceLogging && currentTime >= nextPerformanceLog)
+            {
+                nextPerformanceLog = currentTime + performanceLogInterval;
+                LogPerformanceStats();
             }
         }
 
@@ -107,6 +125,7 @@ namespace SailboatGame.Performance
         /// <summary>
         /// Culls objects based on distance from camera.
         /// Reduces draw calls and improves performance.
+        /// Uses HexTile.SetActive for lazy loading support.
         /// </summary>
         private void PerformDistanceCulling()
         {
@@ -116,7 +135,14 @@ namespace SailboatGame.Performance
             Vector3 cameraPos = cameraTransform.position;
             float cullingDistanceSqr = cullingDistance * cullingDistance;
 
-            foreach (var tile in hexGrid.GetAllTiles())
+            // Convert camera position to hex coordinates and calculate radius
+            HexCoordinates centerCoords = hexGrid.WorldToHex(cameraPos);
+            int hexRadius = Mathf.CeilToInt(cullingDistance * 1.2f);
+
+            int activatedThisFrame = 0;
+            int deactivatedThisFrame = 0;
+
+            foreach (var tile in hexGrid.GetTilesInRadius(centerCoords, hexRadius))
             {
                 if (tile == null) continue;
 
@@ -125,13 +151,27 @@ namespace SailboatGame.Performance
 
                 if (tile.gameObject.activeSelf != shouldBeActive)
                 {
-                    tile.gameObject.SetActive(shouldBeActive);
+                    // Use HexTile.SetActive which handles lazy loading
+                    tile.SetActive(shouldBeActive);
                     
                     if (!shouldBeActive)
+                    {
                         culledObjects.Add(tile.gameObject);
+                        tilesDeactivated++;
+                        deactivatedThisFrame++;
+                    }
                     else
+                    {
                         culledObjects.Remove(tile.gameObject);
+                        tilesActivated++;
+                        activatedThisFrame++;
+                    }
                 }
+            }
+
+            if (activatedThisFrame > 0 || deactivatedThisFrame > 0)
+            {
+                Debug.Log($"PerformanceOptimizer: Culling pass - Activated: {activatedThisFrame}, Deactivated: {deactivatedThisFrame}, Total culled: {culledObjects.Count}");
             }
         }
 
@@ -204,8 +244,23 @@ namespace SailboatGame.Performance
                 FPS = 1f / Time.smoothDeltaTime,
                 CulledObjectCount = culledObjects.Count,
                 MemoryUsageMB = System.GC.GetTotalMemory(false) / (1024f * 1024f),
-                DrawCalls = UnityEngine.Rendering.DebugManager.instance != null ? 0 : 0 // Placeholder
+                DrawCalls = UnityEngine.Rendering.DebugManager.instance != null ? 0 : 0, // Placeholder
+                TilesActivated = tilesActivated,
+                TilesDeactivated = tilesDeactivated
             };
+        }
+
+        /// <summary>
+        /// Logs current performance statistics to the console.
+        /// </summary>
+        private void LogPerformanceStats()
+        {
+            PerformanceStats stats = GetStats();
+            Debug.Log($"PerformanceOptimizer Stats - FPS: {stats.FPS:F1}, " +
+                      $"Culled Objects: {stats.CulledObjectCount}, " +
+                      $"Memory: {stats.MemoryUsageMB:F2} MB, " +
+                      $"Tiles Activated: {stats.TilesActivated}, " +
+                      $"Tiles Deactivated: {stats.TilesDeactivated}");
         }
 
         public struct PerformanceStats
@@ -214,6 +269,8 @@ namespace SailboatGame.Performance
             public int CulledObjectCount;
             public float MemoryUsageMB;
             public int DrawCalls;
+            public int TilesActivated;
+            public int TilesDeactivated;
         }
 
         private void OnDrawGizmos()
