@@ -144,19 +144,16 @@ namespace SailboatGame.Systems
                 
                 // Add margins to ensure full coverage
                 float hexWidth = hexSize * Mathf.Sqrt(3); // Width of a hex
-                float mapWidthWorld = maxX - minX + hexWidth * 1.5f; // Add 1.5 hex widths for margin
-                float mapHeightWorld = maxZ - minZ + hexSize * 3f; // Add 3 hex sizes for margin
+                float mapWidthWorld = maxX - minX + hexWidth * 100.0f; // Add 100 hex widths for margin
+                float mapHeightWorld = maxZ - minZ + hexSize * 100.0f; // Add 100 hex sizes for margin
                 
                 // Position at center with offset
                 backgroundWater.transform.position = center + mapOffset;
                 
-                // The prefab is a Unity plane (10x10 units) with base scale (16, 6, 1)
-                // We need to scale it to match the map dimensions
-                // Plane's actual size at scale (1,1,1) = 10 units, with prefab scale (16,6,1) = effective size varies
                 // Calculate required scale to cover the map area
-                float scaleX = mapWidthWorld;  // Divide by plane's base size (10 units)
-                float scaleZ = mapHeightWorld; // Divide by plane's base size (10 units)
-                float scale = Mathf.Max(scaleX, scaleZ); // Use the larger scale to ensure full coverage
+                float scaleX = mapWidthWorld;
+                float scaleZ = mapHeightWorld;
+                float scale = Mathf.Max(scaleX, scaleZ);
                 
                 backgroundWater.transform.localScale = Vector3.one * scale;
                 
@@ -242,28 +239,38 @@ namespace SailboatGame.Systems
                     bool needsShaderActivation = !isWater; // Terrain tiles need shader activation
                     tile.SetVisualPrefab(tilePrefab, needsShaderActivation);
 
-                    // Add decorations to terrain tiles
+                    // Add decorations to terrain tiles (maximum one decoration per tile)
                     if (!isWater)
                     {
-                        // Randomly add vegetation prefab
-                        if (vegetationPrefabs.Count > 0 && Random.value < vegetationDensity)
-                        {
-                            GameObject vegetationPrefab = vegetationPrefabs[Random.Range(0, vegetationPrefabs.Count)];
-                            tile.AddDecorationPrefab(vegetationPrefab, decorationOffsetRange);
-                        }
-
-                        // Randomly add rocks prefab
-                        if (rockPrefabs.Count > 0 && Random.value < rockDensity)
-                        {
-                            GameObject rockPrefab = rockPrefabs[Random.Range(0, rockPrefabs.Count)];
-                            tile.AddDecorationPrefab(rockPrefab, decorationOffsetRange);
-                        }
-
-                        // Randomly add structures prefab (huts, palms)
-                        if (structurePrefabs.Count > 0 && Random.value < structureDensity)
+                        float decorationRoll = Random.value;
+                        float cumulativeProbability = 0f;
+                        
+                        // Check for structure first (highest priority)
+                        cumulativeProbability += structureDensity;
+                        if (structurePrefabs.Count > 0 && decorationRoll < cumulativeProbability)
                         {
                             GameObject structurePrefab = structurePrefabs[Random.Range(0, structurePrefabs.Count)];
                             tile.AddDecorationPrefab(structurePrefab, decorationOffsetRange);
+                        }
+                        // Check for rocks (second priority)
+                        else
+                        {
+                            cumulativeProbability += rockDensity;
+                            if (rockPrefabs.Count > 0 && decorationRoll < cumulativeProbability)
+                            {
+                                GameObject rockPrefab = rockPrefabs[Random.Range(0, rockPrefabs.Count)];
+                                tile.AddDecorationPrefab(rockPrefab, decorationOffsetRange);
+                            }
+                            // Check for vegetation (lowest priority)
+                            else
+                            {
+                                cumulativeProbability += vegetationDensity;
+                                if (vegetationPrefabs.Count > 0 && decorationRoll < cumulativeProbability)
+                                {
+                                    GameObject vegetationPrefab = vegetationPrefabs[Random.Range(0, vegetationPrefabs.Count)];
+                                    tile.AddDecorationPrefab(vegetationPrefab, decorationOffsetRange);
+                                }
+                            }
                         }
                     }
 
@@ -327,10 +334,8 @@ namespace SailboatGame.Systems
                 foreach (var mat in renderer.materials)
                 {
                     // Enable shader keywords for water effects
-                    if (mat.HasProperty("_EnableWaves"))
-                        mat.SetFloat("_EnableWaves", 1f);
-                    if (mat.HasProperty("_EnableSeaCreatures"))
-                        mat.SetFloat("_EnableSeaCreatures", 1f);
+                    if (mat.HasProperty("_Tiling"))
+                        mat.SetFloat("_Tiling", 30f);
                 }
             }
         }
