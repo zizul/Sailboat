@@ -207,7 +207,7 @@ namespace SailboatGame.Boat
             // Calculate target rotation based on segment direction
             if (segment.Direction != Vector3.zero)
             {
-                //boatFoamParticleSystem.gameObject.SetActive(false);
+               boatFoamParticleSystem.gameObject.SetActive(false);
                 Quaternion targetRotation = Quaternion.LookRotation(segment.Direction);
 
                 // Rotate to face the segment direction
@@ -239,7 +239,7 @@ namespace SailboatGame.Boat
             // Re-enable particle system after rotation completes
             if (boatFoamParticleSystem != null)
             {
-                //boatFoamParticleSystem.gameObject.SetActive(true);
+                boatFoamParticleSystem.gameObject.SetActive(true);
                 boatFoamParticleSystem.Play();
             }
 
@@ -274,66 +274,6 @@ namespace SailboatGame.Boat
             if (boatFoamParticleSystem != null)
             {
                 boatFoamParticleSystem.Stop();
-            }
-        }
-
-        /// <summary>
-        /// Moves the boat to a specific world position with smooth interpolation.
-        /// Rotates to face the target direction before moving.
-        /// </summary>
-        private async Awaitable MoveToPositionAsync(Vector3 targetPosition, CancellationToken cancellationToken)
-        {
-            Vector3 startPosition = transform.position;
-            float distance = Vector3.Distance(startPosition, targetPosition);
-            
-            if (distance < 0.01f)
-                return;
-
-            // Calculate target rotation
-            Vector3 direction = (targetPosition - startPosition).normalized;
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-
-            // First, rotate to face the target direction
-            while (Quaternion.Angle(transform.rotation, targetRotation) > 0.1f)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    return;
-
-                transform.rotation = Quaternion.RotateTowards(
-                    transform.rotation,
-                    targetRotation,
-                    rotationSpeed * Time.deltaTime
-                );
-
-                await Awaitable.NextFrameAsync(cancellationToken);
-            }
-
-            // Ensure exact rotation
-            transform.rotation = targetRotation;
-
-            // Then, move to the target position
-            float duration = distance / moveSpeed;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                if (cancellationToken.IsCancellationRequested)
-                    break;
-
-                elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float curvedT = movementCurve.Evaluate(t);
-
-                // Move position
-                transform.position = Vector3.Lerp(startPosition, targetPosition, curvedT);
-
-                await Awaitable.NextFrameAsync(cancellationToken);
-            }
-
-            // Ensure we reach exact position
-            if (!cancellationToken.IsCancellationRequested)
-            {
-                transform.position = targetPosition;
             }
         }
 

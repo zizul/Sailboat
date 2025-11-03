@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using UnityEngine;
 
@@ -18,5 +19,7 @@ namespace SailboatGame.Interfaces
         /// Clears the current map.
         /// </summary>
         public abstract void ClearMap();
+
+        public abstract event Action<float, string> OnGenerationProgress;
     }
 }

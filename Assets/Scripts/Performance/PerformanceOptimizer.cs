@@ -13,6 +13,7 @@ namespace SailboatGame.Performance
         [Header("References")]
         [SerializeField] private HexGrid hexGrid;
         [SerializeField] private Transform cameraTransform;
+        [SerializeField] private GameManager gameManager;
 
         [Header("Culling Settings")]
         [SerializeField] private bool enableDistanceCulling = true;
@@ -46,12 +47,35 @@ namespace SailboatGame.Performance
                 cameraTransform = UnityEngine.Camera.main.transform;
             }
 
+            // Subscribe to GameManager's map generation completed event
+            if (gameManager != null)
+            {
+                gameManager.OnMapGenerationCompleted += HandleMapGenerationCompleted;
+                gameManager.OnInitializationStarted += HandleInitializationStarted;
+            }
+            else
+            {
+                Debug.LogWarning("PerformanceOptimizer: GameManager reference is not set. Culling will start in Update loop.");
+            }
+
             // Set quality settings for mobile
             OptimizeQualitySettings();
+        }
 
-            // Perform initial culling pass to activate visible tiles
-            // This ensures tiles are loaded immediately after map generation
+        /// <summary>
+        /// Handles map generation completion event from GameManager.
+        /// Performs initial culling pass to activate visible tiles.
+        /// </summary>
+        private void HandleMapGenerationCompleted()
+        {
+            Debug.Log("PerformanceOptimizer: Map generation completed, performing initial culling pass");
             PerformDistanceCulling();
+            enableDistanceCulling = true;
+        }
+
+        private void HandleInitializationStarted()
+        {
+            enableDistanceCulling = false;
         }
 
         private void Update()
@@ -271,6 +295,15 @@ namespace SailboatGame.Performance
             public int DrawCalls;
             public int TilesActivated;
             public int TilesDeactivated;
+        }
+
+        private void OnDestroy()
+        {
+            // Unsubscribe from events
+            if (gameManager != null)
+            {
+                gameManager.OnMapGenerationCompleted -= HandleMapGenerationCompleted;
+            }
         }
 
         private void OnDrawGizmos()

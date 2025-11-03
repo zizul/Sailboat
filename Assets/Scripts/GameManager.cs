@@ -11,6 +11,7 @@ using SailboatGame.Camera;
 using SailboatGame.Visualization;
 using SailboatGame.Interfaces;
 using Debug = UnityEngine.Debug;
+using System;
 
 namespace SailboatGame
 {
@@ -22,6 +23,12 @@ namespace SailboatGame
     /// </summary>
     public class GameManager : MonoBehaviour
     {
+        // Initialization progress events
+        public event Action OnInitializationStarted;
+        public event Action<float, string> OnInitializationProgress; // progress (0-1), stage description
+        public event Action OnInitializationCompleted;
+        public event Action<string> OnInitializationFailed;
+        public event Action OnMapGenerationCompleted; // Fired after map generation finishes
         [Header("Map Selection")]
         [SerializeField] private TextAsset[] mapAssets;
         [SerializeField] private int initialMapIndex = 0;
@@ -49,16 +56,28 @@ namespace SailboatGame
         private MapLoader.MapData currentMapData;
         private CancellationTokenSource gameplayCTS;
         private bool isInitialized;
+        private bool isInitializing; // Track if we're in initial game setup vs map switching
 
         private async void Start()
         {
             // Initialize cancellation token
             gameplayCTS = new CancellationTokenSource();
 
+            // Subscribe to MapGenerator progress events
+            if (mapGenerator != null)
+            {
+                mapGenerator.OnGenerationProgress += HandleMapGenerationProgress;
+            }
+
+            // Fire initialization started event
+            OnInitializationStarted?.Invoke();
+
             // Validate required references are set
             if (!ValidateReferences())
             {
-                Debug.LogError("GameManager: Missing required system references! Use Tools → Sailboat Game → Setup Scene to create properly configured scene.");
+                string errorMsg = "Missing required system references! Use Tools → Sailboat Game → Setup Scene to create properly configured scene.";
+                Debug.LogError($"GameManager: {errorMsg}");
+                OnInitializationFailed?.Invoke(errorMsg);
                 return;
             }
 
@@ -73,7 +92,19 @@ namespace SailboatGame
             }
 
             // Start game initialization
-            await InitializeGameAsync(gameplayCTS.Token);
+            isInitializing = true;
+            bool success = await InitializeGameAsync(gameplayCTS.Token);
+            isInitializing = false;
+
+            // Fire completion or failure event
+            if (success)
+            {
+                OnInitializationCompleted?.Invoke();
+            }
+            else
+            {
+                OnInitializationFailed?.Invoke("Game initialization failed. Check console for details.");
+            }
         }
 
         /// <summary>
@@ -125,65 +156,126 @@ namespace SailboatGame
         /// <summary>
         /// Initializes the game asynchronously.
         /// </summary>
-        private async Awaitable InitializeGameAsync(CancellationToken cancellationToken)
+        private async Awaitable<bool> InitializeGameAsync(CancellationToken cancellationToken)
         {
             Stopwatch totalStopwatch = Stopwatch.StartNew();
             Debug.Log("GameManager: Initializing game...");
 
-            // Load map
-            Stopwatch loadMapStopwatch = Stopwatch.StartNew();
-            if (!await LoadMapAsync(initialMapIndex, cancellationToken))
+            const int totalSteps = 6;
+            int currentStep = 0;
+
+            try
             {
-                Debug.LogError("GameManager: Failed to load initial map");
-                return;
-            }
-            loadMapStopwatch.Stop();
-            Debug.Log($"GameManager: LoadMapAsync took {loadMapStopwatch.ElapsedMilliseconds}ms");
+                // Step 1: Load map
+                ReportProgress(++currentStep, totalSteps, "Loading map data...");
+                Stopwatch loadMapStopwatch = Stopwatch.StartNew();
+                if (!await LoadMapAsync(initialMapIndex, cancellationToken))
+                {
+                    Debug.LogError("GameManager: Failed to load initial map");
+                    return false;
+                }
+                loadMapStopwatch.Stop();
+                Debug.Log($"GameManager: LoadMapAsync took {loadMapStopwatch.ElapsedMilliseconds}ms");
 
-            // Generate map
-            Stopwatch generateMapStopwatch = Stopwatch.StartNew();
-            if (!await mapGenerator.GenerateMapAsync(currentMapData, cancellationToken))
+                // Step 2: Generate map
+                ReportProgress(++currentStep, totalSteps, "Generating map...");
+                Stopwatch generateMapStopwatch = Stopwatch.StartNew();
+                if (!await mapGenerator.GenerateMapAsync(currentMapData, cancellationToken))
+                {
+                    Debug.LogError("GameManager: Failed to generate map");
+                    return false;
+                }
+                generateMapStopwatch.Stop();
+                Debug.Log($"GameManager: GenerateMapAsync took {generateMapStopwatch.ElapsedMilliseconds}ms");
+                
+                // Notify that map generation is complete
+                OnMapGenerationCompleted?.Invoke();
+
+                // Step 3: Find valid boat start position
+                ReportProgress(++currentStep, totalSteps, "Finding boat position...");
+                Stopwatch findStartPosStopwatch = Stopwatch.StartNew();
+                HexCoordinates validStartPos = FindValidBoatStartPosition();
+                findStartPosStopwatch.Stop();
+                Debug.Log($"GameManager: FindValidBoatStartPosition took {findStartPosStopwatch.ElapsedMilliseconds}ms");
+
+                // Step 4: Spawn boat
+                ReportProgress(++currentStep, totalSteps, "Spawning boat...");
+                Stopwatch spawnBoatStopwatch = Stopwatch.StartNew();
+                await SpawnBoatAsync(validStartPos, cancellationToken);
+                spawnBoatStopwatch.Stop();
+                Debug.Log($"GameManager: SpawnBoatAsync took {spawnBoatStopwatch.ElapsedMilliseconds}ms");
+
+                // Step 5: Setup camera
+                ReportProgress(++currentStep, totalSteps, "Setting up camera...");
+                Stopwatch setupCameraStopwatch = Stopwatch.StartNew();
+                if (cameraController != null && boatController != null)
+                {
+                    cameraController.SetTarget(boatController.transform);
+                    cameraController.SnapToTarget();
+                }
+                setupCameraStopwatch.Stop();
+                Debug.Log($"GameManager: Camera setup took {setupCameraStopwatch.ElapsedMilliseconds}ms");
+
+                // Step 6: Subscribe to input events
+                ReportProgress(++currentStep, totalSteps, "Finalizing...");
+                Stopwatch subscribeEventsStopwatch = Stopwatch.StartNew();
+                if (inputHandler != null)
+                {
+                    inputHandler.OnTileClicked += HandleTileClicked;
+                }
+                subscribeEventsStopwatch.Stop();
+                Debug.Log($"GameManager: Event subscription took {subscribeEventsStopwatch.ElapsedMilliseconds}ms");
+
+                isInitialized = true;
+                totalStopwatch.Stop();
+                
+                ReportProgress(totalSteps, totalSteps, "Complete!");
+                Debug.Log($"GameManager: Initialization complete. Total time: {totalStopwatch.ElapsedMilliseconds}ms ({totalStopwatch.Elapsed.TotalSeconds:F2}s)");
+                
+                return true;
+            }
+            catch (System.Exception ex)
             {
-                Debug.LogError("GameManager: Failed to generate map");
-                return;
+                Debug.LogError($"GameManager: Initialization failed with exception: {ex.Message}\n{ex.StackTrace}");
+                return false;
             }
-            generateMapStopwatch.Stop();
-            Debug.Log($"GameManager: GenerateMapAsync took {generateMapStopwatch.ElapsedMilliseconds}ms");
+        }
 
-            // Find valid boat start position
-            Stopwatch findStartPosStopwatch = Stopwatch.StartNew();
-            HexCoordinates validStartPos = FindValidBoatStartPosition();
-            findStartPosStopwatch.Stop();
-            Debug.Log($"GameManager: FindValidBoatStartPosition took {findStartPosStopwatch.ElapsedMilliseconds}ms");
+        /// <summary>
+        /// Reports initialization progress via events.
+        /// </summary>
+        private void ReportProgress(int currentStep, int totalSteps, string stage)
+        {
+            float progress = currentStep / (float)totalSteps;
+            OnInitializationProgress?.Invoke(progress, stage);
+        }
 
-            // Spawn boat
-            Stopwatch spawnBoatStopwatch = Stopwatch.StartNew();
-            await SpawnBoatAsync(validStartPos, cancellationToken);
-            spawnBoatStopwatch.Stop();
-            Debug.Log($"GameManager: SpawnBoatAsync took {spawnBoatStopwatch.ElapsedMilliseconds}ms");
-
-            // Setup camera
-            Stopwatch setupCameraStopwatch = Stopwatch.StartNew();
-            if (cameraController != null && boatController != null)
+        /// <summary>
+        /// Handles map generation progress updates and re-broadcasts them.
+        /// Interpolates sub-progress within the overall initialization/switching progress.
+        /// </summary>
+        private void HandleMapGenerationProgress(float subProgress, string stage)
+        {
+            // Calculate overall progress based on context
+            float overallProgress;
+            
+            if (isInitializing)
             {
-                cameraController.SetTarget(boatController.transform);
-                cameraController.SnapToTarget();
+                // During initial game setup: we're in step 2 of 6 (16.7% to 33.3%)
+                float stepStart = 1f / 6f; // 16.7%
+                float stepEnd = 2f / 6f;   // 33.3%
+                overallProgress = stepStart + (subProgress * (stepEnd - stepStart));
             }
-            setupCameraStopwatch.Stop();
-            Debug.Log($"GameManager: Camera setup took {setupCameraStopwatch.ElapsedMilliseconds}ms");
-
-            // Subscribe to input events
-            Stopwatch subscribeEventsStopwatch = Stopwatch.StartNew();
-            if (inputHandler != null)
+            else
             {
-                inputHandler.OnTileClicked += HandleTileClicked;
+                // During map switching: we're in step 3 of 5 (40% to 60%)
+                float stepStart = 2f / 5f; // 40%
+                float stepEnd = 3f / 5f;   // 60%
+                overallProgress = stepStart + (subProgress * (stepEnd - stepStart));
             }
-            subscribeEventsStopwatch.Stop();
-            Debug.Log($"GameManager: Event subscription took {subscribeEventsStopwatch.ElapsedMilliseconds}ms");
-
-            isInitialized = true;
-            totalStopwatch.Stop();
-            Debug.Log($"GameManager: Initialization complete. Total time: {totalStopwatch.ElapsedMilliseconds}ms ({totalStopwatch.Elapsed.TotalSeconds:F2}s)");
+            
+            // Re-broadcast with interpolated progress and sub-step stage description
+            OnInitializationProgress?.Invoke(overallProgress, stage);
         }
 
         /// <summary>
@@ -371,61 +463,104 @@ namespace SailboatGame
         }
 
         /// <summary>
-        /// Switches to a different map.
+        /// Switches to a different map asynchronously with progress reporting.
+        /// Fires initialization events for UI feedback.
         /// </summary>
-        public async void SwitchMap(int mapIndex)
+        public async Awaitable SwitchMapAsync(int mapIndex)
         {
             if (mapIndex < 0 || mapIndex >= mapAssets.Length)
             {
                 Debug.LogError($"GameManager: Invalid map index {mapIndex}");
+                OnInitializationFailed?.Invoke($"Invalid map index: {mapIndex}");
                 return;
             }
 
             Debug.Log($"GameManager: Switching to map {mapIndex}");
 
-            // Clear current state
-            pathVisualizer.ClearPath();
-            if (boatController != null)
+            // Fire initialization started event
+            isInitializing = false; // Track that we're map switching, not initial setup
+            OnInitializationStarted?.Invoke();
+
+            const int totalSteps = 5;
+            int currentStep = 0;
+
+            try
             {
-                boatController.CancelMovement();
-                boatController.OnBoatStopped -= pathVisualizer.ClearPath;
-                Destroy(boatController.gameObject);
-                boatController = null;
+                // Step 1: Clear current state
+                ReportProgress(++currentStep, totalSteps, "Cleaning up current map...");
+                pathVisualizer.ClearPath();
+                if (boatController != null)
+                {
+                    boatController.CancelMovement();
+                    boatController.OnBoatStopped -= pathVisualizer.ClearPath;
+                    Destroy(boatController.gameObject);
+                    boatController = null;
+                }
+                await Awaitable.NextFrameAsync(gameplayCTS.Token);
+
+                // Step 2: Load new map
+                ReportProgress(++currentStep, totalSteps, "Loading new map data...");
+                if (!await LoadMapAsync(mapIndex, gameplayCTS.Token))
+                {
+                    Debug.LogError($"GameManager: Failed to load map at index {mapIndex}");
+                    OnInitializationFailed?.Invoke("Failed to load map data.");
+                    return;
+                }
+
+                // Step 3: Generate map
+                ReportProgress(++currentStep, totalSteps, "Generating new map...");
+                if (!await mapGenerator.GenerateMapAsync(currentMapData, gameplayCTS.Token))
+                {
+                    Debug.LogError("GameManager: Failed to generate new map");
+                    OnInitializationFailed?.Invoke("Failed to generate map.");
+                    return;
+                }
+
+                // Step 4: Spawn boat
+                ReportProgress(++currentStep, totalSteps, "Spawning boat...");
+                HexCoordinates validStartPos = FindValidBoatStartPosition();
+                await SpawnBoatAsync(validStartPos, gameplayCTS.Token);
+
+                // Step 5: Reset camera
+                ReportProgress(++currentStep, totalSteps, "Finalizing...");
+                if (cameraController != null && boatController != null)
+                {
+                    cameraController.SetTarget(boatController.transform);
+                    cameraController.SnapToTarget();
+                }
+
+                // Notify that map generation is complete
+                OnMapGenerationCompleted?.Invoke();
+
+                await Awaitable.NextFrameAsync(gameplayCTS.Token);
+                await Awaitable.NextFrameAsync(gameplayCTS.Token);
+
+                Debug.Log($"GameManager: Successfully switched to map {mapIndex}");
+                OnInitializationCompleted?.Invoke();
             }
-
-            // Reload map and regenerate
-            await LoadMapAsync(mapIndex, gameplayCTS.Token);            
-            
-            // Respawn boat
-            HexCoordinates validStartPos = FindValidBoatStartPosition();
-            await SpawnBoatAsync(validStartPos, gameplayCTS.Token);
-
-            // Reset camera
-            if (cameraController != null && boatController != null)
+            catch (System.Exception ex)
             {
-                cameraController.SetTarget(boatController.transform);
-                cameraController.SnapToTarget();
+                Debug.LogError($"GameManager: Map switching failed with exception: {ex.Message}\n{ex.StackTrace}");
+                OnInitializationFailed?.Invoke("Map switching failed. Check console for details.");
             }
-
-            await mapGenerator.GenerateMapAsync(currentMapData, gameplayCTS.Token);
         }
 
         /// <summary>
         /// Public method to load Map 1.
         /// </summary>
         [ContextMenu("Load Map 1")]
-        public void LoadMap1()
+        public async void LoadMap1()
         {
-            SwitchMap(0);
+            await SwitchMapAsync(0);
         }
 
         /// <summary>
         /// Public method to load Maze map.
         /// </summary>
         [ContextMenu("Load Maze Map")]
-        public void LoadMazeMap()
+        public async void LoadMazeMap()
         {
-            SwitchMap(1);
+            await SwitchMapAsync(1);
         }
 
         private void OnDestroy()
@@ -439,6 +574,11 @@ namespace SailboatGame
             if (boatController != null)
             {
                 boatController.OnBoatStopped -= pathVisualizer.ClearPath;
+            }
+
+            if (mapGenerator != null)
+            {
+                mapGenerator.OnGenerationProgress -= HandleMapGenerationProgress;
             }
 
             if (gameplayCTS != null)

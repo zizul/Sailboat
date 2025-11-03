@@ -39,7 +39,8 @@ namespace SailboatGame.Visualization
             // Setup line renderer
             if (lineRenderer == null)
             {
-                lineRenderer = gameObject.AddComponent<LineRenderer>();            }
+                lineRenderer = gameObject.AddComponent<LineRenderer>();
+            }
 
             ConfigureLineRenderer();
         }
@@ -63,9 +64,9 @@ namespace SailboatGame.Visualization
         private void ConfigureLineRenderer()
         {
             if (lineRenderer == null) return;
+            
             lineRenderer.startWidth = lineWidth;
             lineRenderer.endWidth = lineWidth;
-            //lineRenderer.widthCurve = lineWidthCurve;
             lineRenderer.startColor = lineColor;
             lineRenderer.endColor = lineColor;
             lineRenderer.numCapVertices = 5;

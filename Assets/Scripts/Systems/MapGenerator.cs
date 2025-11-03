@@ -17,6 +17,8 @@ namespace SailboatGame.Systems
     /// </summary>
     public class MapGenerator : IMapGenerator
     {
+        // Map generation progress events
+        public override event System.Action<float, string> OnGenerationProgress; // progress (0-1), stage description
         [Header("References")]
         [SerializeField] private HexGrid hexGrid;
         [SerializeField] private IAssetLoader assetLoader;
@@ -82,26 +84,31 @@ namespace SailboatGame.Systems
             ClearMap();
             clearStopwatch.Stop();
             Debug.Log($"MapGenerator: ClearMap took {clearStopwatch.ElapsedMilliseconds}ms");
+            OnGenerationProgress?.Invoke(0.25f, "Clearing map...");
 
             // Initialize grid
             Stopwatch initStopwatch = Stopwatch.StartNew();
             hexGrid.Initialize(mapData.Width, mapData.Height, hexSize);
             initStopwatch.Stop();
             Debug.Log($"MapGenerator: Grid initialization took {initStopwatch.ElapsedMilliseconds}ms");
+            OnGenerationProgress?.Invoke(0.5f, "Initializing grid...");
 
             // Step 1: Create background water plane
             Stopwatch backgroundStopwatch = Stopwatch.StartNew();
             await CreateBackgroundAsync(mapData, cancellationToken);
             backgroundStopwatch.Stop();
             Debug.Log($"MapGenerator: CreateBackgroundAsync took {backgroundStopwatch.ElapsedMilliseconds}ms");
+            OnGenerationProgress?.Invoke(0.75f, "Creating background...");
 
             // Step 2: Generate tiles with decorations
+            // Note: Progress updates are now handled within GenerateTilesAsync
             Stopwatch tilesStopwatch = Stopwatch.StartNew();
             await GenerateTilesAsync(mapData, cancellationToken);
             tilesStopwatch.Stop();
             Debug.Log($"MapGenerator: GenerateTilesAsync took {tilesStopwatch.ElapsedMilliseconds}ms");
 
             totalStopwatch.Stop();
+            OnGenerationProgress?.Invoke(1.0f, "Map generation complete");
             Debug.Log($"MapGenerator: Map generation complete. {hexGrid.TileCount} tiles created. Total time: {totalStopwatch.ElapsedMilliseconds}ms ({totalStopwatch.Elapsed.TotalSeconds:F2}s)");
             return true;
         }
@@ -116,6 +123,14 @@ namespace SailboatGame.Systems
             if (backgroundPrefab != null)
             {
                 backgroundWater = Instantiate(backgroundPrefab, transform);
+                
+                // Mark background water as static for batching optimization
+                backgroundWater.isStatic = true;
+                // Also mark all children as static
+                foreach (Transform child in backgroundWater.transform)
+                {
+                    child.gameObject.isStatic = true;
+                }
                 
                 // Calculate actual bounds of the hex grid in world space
                 // Using offset coordinates for proper hex positioning
@@ -207,10 +222,11 @@ namespace SailboatGame.Systems
             int tilesCreated = 0;
             int waterTilesCreated = 0;
             int terrainTilesCreated = 0;
+            int totalTiles = mapData.Width * mapData.Height;
             int batchSize = 200; // Process in batches to avoid frame spikes
-            int logInterval = 100; // Log every N tiles
+            int progressInterval = Mathf.Max(1, totalTiles / 20); // Update progress ~20 times during generation
 
-            Debug.Log($"MapGenerator: Starting tile generation for {mapData.Width}x{mapData.Height} map ({mapData.Width * mapData.Height} total tiles)");
+            Debug.Log($"MapGenerator: Starting tile generation for {mapData.Width}x{mapData.Height} map ({totalTiles} total tiles)");
             Stopwatch tileCreationStopwatch = Stopwatch.StartNew();
 
             // Convert 2D array to hex coordinates and create tiles
@@ -286,11 +302,13 @@ namespace SailboatGame.Systems
                     else
                         terrainTilesCreated++;
 
-                    // Log progress periodically
-                    if (tilesCreated % logInterval == 0)
+                    // Report progress periodically
+                    if (tilesCreated % progressInterval == 0 || tilesCreated == totalTiles)
                     {
-                        string tileTypeStr = isWater ? "Water" : "Terrain";
-                        Debug.Log($"MapGenerator: Processing tile [{x},{y}] Hex({q},{r}) - Type: {tileTypeStr} | Progress: {tilesCreated}/{mapData.Width * mapData.Height} ({(tilesCreated * 100f / (mapData.Width * mapData.Height)):F1}%)");
+                        // Calculate sub-progress within tile generation (0.85 to 1.0)
+                        float tileProgress = tilesCreated / (float)totalTiles;
+                        float overallProgress = 0.85f + (tileProgress * 0.15f); // Map to 85%-100% range
+                        OnGenerationProgress?.Invoke(overallProgress, $"Generating tiles... {tilesCreated}/{totalTiles}");
                     }
 
                     // Yield every batch to maintain framerate
@@ -336,23 +354,6 @@ namespace SailboatGame.Systems
                     // Enable shader keywords for water effects
                     if (mat.HasProperty("_Tiling"))
                         mat.SetFloat("_Tiling", 30f);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Activates shader effects for terrain materials.
-        /// </summary>
-        private void ActivateTerrainEffects(GameObject terrainObject)
-        {
-            var renderers = terrainObject.GetComponentsInChildren<Renderer>();
-            foreach (var renderer in renderers)
-            {
-                foreach (var mat in renderer.materials)
-                {
-                    // Enable shader keywords for terrain effects
-                    if (mat.HasProperty("_EnableTexture"))
-                        mat.SetFloat("_EnableTexture", 1f);
                 }
             }
         }

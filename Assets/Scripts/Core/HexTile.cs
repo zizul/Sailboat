@@ -72,6 +72,15 @@ namespace SailboatGame.Core
                 visual.transform.SetParent(transform);
                 visual.transform.localPosition = Vector3.zero;
                 visual.transform.localRotation = Quaternion.identity;
+                
+                // Mark visual as static for batching optimization
+                visual.isStatic = true;
+                // Also mark all children as static
+                foreach (Transform child in visual.transform)
+                {
+                    child.gameObject.isStatic = true;
+                }
+                
                 visualsLoaded = true;
             }
         }
@@ -108,6 +117,14 @@ namespace SailboatGame.Core
                 );
                 decoration.transform.localRotation = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
                 
+                // Mark decoration as static for batching optimization
+                decoration.isStatic = true;
+                // Also mark all children as static
+                foreach (Transform child in decoration.transform)
+                {
+                    child.gameObject.isStatic = true;
+                }
+                
                 decorations.Add(decoration);
             }
         }
@@ -122,30 +139,7 @@ namespace SailboatGame.Core
             GameObject visual = Instantiate(visualPrefab);
             SetVisual(visual);
             
-            // Activate shader effects if needed (for terrain tiles)
-            if (needsShaderActivation && tileType == TileType.Terrain)
-            {
-                ActivateTerrainEffects(visual);
-            }
-            
             visualsLoaded = true;
-        }
-
-        /// <summary>
-        /// Activates shader effects for terrain materials.
-        /// </summary>
-        private void ActivateTerrainEffects(GameObject terrainObject)
-        {
-            var renderers = terrainObject.GetComponentsInChildren<Renderer>();
-            foreach (var renderer in renderers)
-            {
-                foreach (var mat in renderer.materials)
-                {
-                    // Enable shader keywords for terrain effects
-                    if (mat.HasProperty("_EnableTexture"))
-                        mat.SetFloat("_EnableTexture", 1f);
-                }
-            }
         }
 
         /// <summary>

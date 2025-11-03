@@ -21,8 +21,6 @@ namespace SailboatGame.Input
         [SerializeField] private float raycastDistance = 1000f;
         [SerializeField] private bool blockInputOverUI = true;
 
-        //public event Action<HexCoordinates> OnTileClicked;
-        //public event Action<Vector3> OnWorldPositionClicked;
         public override event Action<HexCoordinates> OnTileClicked;
         public override event Action<Vector3> OnWorldPositionClicked;
 
