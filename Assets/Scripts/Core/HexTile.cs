@@ -99,11 +99,11 @@ namespace SailboatGame.Core
             if (decoration != null)
             {
                 decoration.transform.SetParent(transform);
-                
+
                 // Add slight random offset and rotation for natural look
                 decoration.transform.localPosition = new Vector3(
                     Random.Range(-offsetRange, offsetRange),
-                    0,
+                    0.33f,
                     Random.Range(-offsetRange, offsetRange)
                 );
                 decoration.transform.localRotation = Quaternion.Euler(0, Random.Range(0f, 360f), 0);
