@@ -212,40 +212,78 @@ namespace SailboatGame
 
         /// <summary>
         /// Finds a valid starting position for the boat (water tile).
+        /// Places boat in the middle of the map.
         /// </summary>
         private HexCoordinates FindValidBoatStartPosition()
         {
-            // Try the specified start position first
-            if (hexGrid.IsWalkable(boatStartPosition))
+            if (currentMapData == null)
             {
-                return boatStartPosition;
+                Debug.LogError("GameManager: No map data available for finding boat position!");
+                return new HexCoordinates(0, 0);
             }
 
-            // Search for a water tile near center
-            int searchRadius = 10;
+            // Calculate center of map in offset coordinates
+            int centerX = currentMapData.Width / 2;
+            int centerY = currentMapData.Height / 2;
+
+            // Convert center position from offset coordinates to hex coordinates
+            int centerQ = centerX - centerY / 2;
+            int centerR = centerY;
+            HexCoordinates centerCoords = new HexCoordinates(centerQ, centerR);
+
+            // Try the center position first
+            if (currentMapData.IsWater(centerX, centerY))
+            {
+                Debug.Log($"GameManager: Boat placed at map center {centerCoords}");
+                return centerCoords;
+            }
+
+            // Search outward from center for nearest water tile
+            int searchRadius = Mathf.Max(currentMapData.Width, currentMapData.Height);
             for (int radius = 1; radius <= searchRadius; radius++)
             {
-                for (int q = -radius; q <= radius; q++)
+                for (int offsetX = -radius; offsetX <= radius; offsetX++)
                 {
-                    for (int r = Mathf.Max(-radius, -q - radius); r <= Mathf.Min(radius, -q + radius); r++)
+                    for (int offsetY = -radius; offsetY <= radius; offsetY++)
                     {
-                        HexCoordinates coords = new HexCoordinates(q, r);
-                        if (hexGrid.IsWalkable(coords))
+                        // Skip if not on the edge of the search ring
+                        if (Mathf.Abs(offsetX) != radius && Mathf.Abs(offsetY) != radius)
+                            continue;
+
+                        int x = centerX + offsetX;
+                        int y = centerY + offsetY;
+
+                        // Check bounds and if it's water
+                        if (x >= 0 && x < currentMapData.Width && y >= 0 && y < currentMapData.Height)
                         {
-                            Debug.Log($"GameManager: Found valid start position at {coords}");
-                            return coords;
+                            if (currentMapData.IsWater(x, y))
+                            {
+                                // Convert from offset coordinates to hex coordinates
+                                int q = x - y / 2;
+                                int r = y;
+                                HexCoordinates coords = new HexCoordinates(q, r);
+                                Debug.Log($"GameManager: Found valid water tile near center at {coords} (offset from center by radius {radius})");
+                                return coords;
+                            }
                         }
                     }
                 }
             }
 
-            // Fallback: search all tiles
-            foreach (var tile in hexGrid.GetAllTiles())
+            // Fallback: search all map data for any water tile
+            for (int y = 0; y < currentMapData.Height; y++)
             {
-                if (tile.IsWalkable)
+                for (int x = 0; x < currentMapData.Width; x++)
                 {
-                    Debug.LogWarning($"GameManager: Using fallback start position at {tile.Coordinates}");
-                    return tile.Coordinates;
+                    if (currentMapData.IsWater(x, y))
+                    {
+                        // Convert from offset coordinates to hex coordinates
+                        int q = x - y / 2;
+                        int r = y;
+                        HexCoordinates coords = new HexCoordinates(q, r);
+                        Debug.LogWarning($"GameManager: Using fallback start position at {coords}");
+                        return coords;
+                    }
                 }
             }
 
@@ -273,8 +311,12 @@ namespace SailboatGame
             {
                 boatController = boatObject.AddComponent<BoatController>();
             }
+            
 
             boatController.Initialize(position, hexGrid, assetLoader);
+
+            // Register path visualizer to clear path when boat stops
+            boatController.OnBoatStopped += pathVisualizer.ClearPath;
 
             Debug.Log($"GameManager: Boat spawned at {position}");
         }
@@ -290,6 +332,7 @@ namespace SailboatGame
                 if (boatController != null && boatController.IsMoving)
                 {
                     boatController.CancelMovement();
+                    return;
                 }
                 else
                 {
@@ -323,11 +366,8 @@ namespace SailboatGame
             // Visualize path
             pathVisualizer.ShowPath(path);
 
-            // Move boat along path
+            // Move boat along path (line renderer will be cleared automatically when movement finishes)
             await boatController.MoveAlongPathAsync(path, gameplayCTS.Token);
-
-            // Clear visualization after movement
-            pathVisualizer.ClearPath();
         }
 
         /// <summary>
@@ -348,14 +388,14 @@ namespace SailboatGame
             if (boatController != null)
             {
                 boatController.CancelMovement();
+                boatController.OnBoatStopped -= pathVisualizer.ClearPath;
                 Destroy(boatController.gameObject);
                 boatController = null;
             }
 
             // Reload map and regenerate
-            await LoadMapAsync(mapIndex, gameplayCTS.Token);
-            await mapGenerator.GenerateMapAsync(currentMapData, gameplayCTS.Token);
-
+            await LoadMapAsync(mapIndex, gameplayCTS.Token);            
+            
             // Respawn boat
             HexCoordinates validStartPos = FindValidBoatStartPosition();
             await SpawnBoatAsync(validStartPos, gameplayCTS.Token);
@@ -366,6 +406,8 @@ namespace SailboatGame
                 cameraController.SetTarget(boatController.transform);
                 cameraController.SnapToTarget();
             }
+
+            await mapGenerator.GenerateMapAsync(currentMapData, gameplayCTS.Token);
         }
 
         /// <summary>
@@ -392,6 +434,11 @@ namespace SailboatGame
             if (inputHandler != null)
             {
                 inputHandler.OnTileClicked -= HandleTileClicked;
+            }
+
+            if (boatController != null)
+            {
+                boatController.OnBoatStopped -= pathVisualizer.ClearPath;
             }
 
             if (gameplayCTS != null)
