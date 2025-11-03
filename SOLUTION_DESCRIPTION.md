@@ -3,7 +3,7 @@
 ## Overview
 
 This is a hexagonal grid-based sailing game implemented in Unity 6, featuring asynchronous pathfinding, addressable asset management, and mobile-optimized rendering. The solution emphasizes clean architecture, event-driven communication, and performance optimization for cross-platform deployment (Windows, Mac, Mobile).
-
+Use scene Main.unity
 ---
 
 ## Architecture & Design Decisions
