@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
@@ -31,7 +32,7 @@ namespace SailboatGame.Boat
         [Header("References")]
         [SerializeField] private HexGrid hexGrid;
         [SerializeField] private GameObject boatVisual;
-        [SerializeField] private Transform boatFoamSpawnPoint;
+        [SerializeField] private ParticleSystem boatFoamParticleSystem;
 
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 3f;
@@ -54,6 +55,11 @@ namespace SailboatGame.Boat
         public bool IsMoving => isMoving;
 
         /// <summary>
+        /// Event triggered when the boat stops moving (reaches destination or movement is cancelled).
+        /// </summary>
+        public event Action OnBoatStopped;
+
+        /// <summary>
         /// Initializes the boat at a specific hex position.
         /// </summary>
         public void Initialize(HexCoordinates startPosition, HexGrid grid, IAssetLoader loader)
@@ -67,13 +73,10 @@ namespace SailboatGame.Boat
                 transform.position = hexGrid.HexToWorld(startPosition);
             }
 
-            // Setup foam spawn point if not assigned
-            if (boatFoamSpawnPoint == null)
+            // Disable particle system initially
+            if (boatFoamParticleSystem != null)
             {
-                GameObject spawnPoint = new GameObject("FoamSpawnPoint");
-                spawnPoint.transform.SetParent(transform);
-                spawnPoint.transform.localPosition = new Vector3(0, 0, -0.5f); // Behind boat
-                boatFoamSpawnPoint = spawnPoint.transform;
+                boatFoamParticleSystem.Stop();
             }
         }
 
@@ -102,7 +105,7 @@ namespace SailboatGame.Boat
             try
             {
                 // Start foam effect
-                var foamTask = SpawnFoamEffectsAsync(linkedToken);
+                //var foamTask = SpawnFoamEffectsAsync(linkedToken);
 
                 // Group path into segments based on direction changes
                 List<PathSegment> segments = GroupPathIntoSegments(currentPath);
@@ -116,7 +119,7 @@ namespace SailboatGame.Boat
                     await MoveAlongSegmentAsync(segment, linkedToken);
                 }
 
-                await foamTask;
+                //await foamTask;
             }
             catch (System.Exception e)
             {
@@ -132,6 +135,15 @@ namespace SailboatGame.Boat
                 movementCTS?.Dispose();
                 movementCTS = null;
             }
+
+            // Disable particle system when movement stops
+            if (boatFoamParticleSystem != null)
+            {
+                boatFoamParticleSystem.Stop();
+            }
+
+            // Trigger event when boat stops moving
+            OnBoatStopped?.Invoke();
         }
 
         /// <summary>
@@ -195,13 +207,22 @@ namespace SailboatGame.Boat
             // Calculate target rotation based on segment direction
             if (segment.Direction != Vector3.zero)
             {
+                //boatFoamParticleSystem.gameObject.SetActive(false);
                 Quaternion targetRotation = Quaternion.LookRotation(segment.Direction);
 
                 // Rotate to face the segment direction
                 while (Quaternion.Angle(transform.rotation, targetRotation) > 0.1f)
                 {
                     if (cancellationToken.IsCancellationRequested)
+                    {
+                        // Disable particle system during rotation
+                        if (boatFoamParticleSystem != null)
+                        {
+                            boatFoamParticleSystem.Stop();
+                        }
                         return;
+                    }
+                        
 
                     transform.rotation = Quaternion.RotateTowards(
                         transform.rotation,
@@ -213,6 +234,13 @@ namespace SailboatGame.Boat
                 }
 
                 transform.rotation = targetRotation;
+            }
+
+            // Re-enable particle system after rotation completes
+            if (boatFoamParticleSystem != null)
+            {
+                //boatFoamParticleSystem.gameObject.SetActive(true);
+                boatFoamParticleSystem.Play();
             }
 
             // Move smoothly along the entire segment
@@ -231,6 +259,7 @@ namespace SailboatGame.Boat
 
                 transform.position = Vector3.Lerp(startPosition, endPosition, curvedT);
 
+                currentPosition = hexGrid.WorldToHex(transform.position);
                 await Awaitable.NextFrameAsync(cancellationToken);
             }
 
@@ -239,6 +268,12 @@ namespace SailboatGame.Boat
             {
                 transform.position = endPosition;
                 currentPosition = segment.Waypoints[segment.Waypoints.Count - 1];
+            }
+
+            // Disable particle system during rotation
+            if (boatFoamParticleSystem != null)
+            {
+                boatFoamParticleSystem.Stop();
             }
         }
 
@@ -347,8 +382,8 @@ namespace SailboatGame.Boat
                 foam = Instantiate(foamPrefab);
             }
 
-            // Position at spawn point
-            Vector3 spawnPos = boatFoamSpawnPoint != null ? boatFoamSpawnPoint.position : transform.position;
+            // Position behind the boat
+            Vector3 spawnPos = transform.position - (transform.forward * 0.5f);
             foam.transform.position = spawnPos;
             foam.transform.rotation = transform.rotation;
 
@@ -382,12 +417,9 @@ namespace SailboatGame.Boat
         /// </summary>
         public void CancelMovement()
         {
-            if (movementCTS != null)
-            {
-                movementCTS.Cancel();
-                movementCTS.Dispose();
-                movementCTS = null;
-            }
+            movementCTS?.Cancel();
+            movementCTS?.Dispose();
+            movementCTS = null;
             isMoving = false;
         }
 
