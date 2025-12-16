@@ -115,6 +115,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e387196994febbd488b18a28d973c6e3
+    m_Address: boat_foam_effect
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e64f4c88ce5e5b04494ed2f910f74e52
     m_Address: mauritania_vegetation_set_02
     m_ReadOnly: 0
