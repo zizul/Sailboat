@@ -11,20 +11,29 @@ namespace SailboatGame.Pathfinding
     /// </summary>
     public class PathfindingSystem : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private HexGrid hexGrid;
+    [Header("References")]
+    [SerializeField] private HexGrid hexGrid;
 
-        [Header("Settings")]
-        [SerializeField] private bool useAsyncPathfinding = true;
+    [Header("Settings")]
+    [SerializeField] private bool useAsyncPathfinding = true;
 
-        private IPathfindingStrategy currentStrategy;
-        private CancellationTokenSource currentPathfindingCTS;
+    private IPathfindingStrategy currentStrategy;
+    private CancellationTokenSource currentPathfindingCTS;
+    private bool supportsBackgroundThreads;
 
-        private void Awake()
-        {
-            // Default to A* algorithm
-            SetStrategy(new AStarPathfinding());
-        }
+    private void Awake()
+    {
+        // Default to A* algorithm
+        SetStrategy(new AStarPathfinding());
+        
+        // WebGL doesn't support multithreading, so disable background pathfinding
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        supportsBackgroundThreads = false;
+        Debug.Log("PathfindingSystem: WebGL detected - running pathfinding on main thread");
+        #else
+        supportsBackgroundThreads = true;
+        #endif
+    }
 
         /// <summary>
         /// Sets the pathfinding strategy to use.
@@ -68,38 +77,38 @@ namespace SailboatGame.Pathfinding
 
             List<HexCoordinates> path = null;
 
-            try
+        try
+        {
+            if (useAsyncPathfinding && supportsBackgroundThreads)
             {
-                if (useAsyncPathfinding)
+                // Run pathfinding off main thread to avoid frame spikes for large paths
+                await Awaitable.BackgroundThreadAsync();
+
+                if (linkedToken.IsCancellationRequested)
                 {
-                    // Run pathfinding off main thread to avoid frame spikes for large paths
-                    await Awaitable.BackgroundThreadAsync();
-
-                    if (linkedToken.IsCancellationRequested)
-                    {
-                        return null;
-                    }
-
-                    path = currentStrategy.FindPath(start, goal, hexGrid);
-
-                    // Return to main thread
-                    await Awaitable.MainThreadAsync();
+                    return null;
                 }
-                else
-                {
-                    // Run on main thread
-                    path = currentStrategy.FindPath(start, goal, hexGrid);
-                    await Awaitable.NextFrameAsync(linkedToken);
-                }
+
+                path = currentStrategy.FindPath(start, goal, hexGrid);
+
+                // Return to main thread
+                await Awaitable.MainThreadAsync();
             }
-            catch (System.Exception e)
+            else
             {
-                if (!linkedToken.IsCancellationRequested)
-                {
-                    Debug.LogError($"PathfindingSystem: Error during pathfinding: {e.Message}");
-                }
-                return null;
+                // Run on main thread (WebGL or async disabled)
+                path = currentStrategy.FindPath(start, goal, hexGrid);
+                await Awaitable.NextFrameAsync(linkedToken);
             }
+        }
+        catch (System.Exception e)
+        {
+            if (!linkedToken.IsCancellationRequested)
+            {
+                Debug.LogError($"PathfindingSystem: Error during pathfinding: {e.Message}");
+            }
+            return null;
+        }
             finally
             {
                 currentPathfindingCTS?.Dispose();

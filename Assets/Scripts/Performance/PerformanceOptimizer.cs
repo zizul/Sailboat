@@ -120,7 +120,7 @@ namespace SailboatGame.Performance
             QualitySettings.pixelLightCount = 1;
             
             // Texture quality
-            QualitySettings.masterTextureLimit = 1; // Half resolution
+            QualitySettings.globalTextureMipmapLimit = 1; // Half resolution
             
             // Anisotropic filtering
             QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;

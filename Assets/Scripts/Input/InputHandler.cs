@@ -107,8 +107,8 @@ namespace SailboatGame.Input
                         HexCoordinates hexCoords = hexGrid.WorldToHex(worldPos);
                         if (hexGrid.HasTile(hexCoords))
                         {
-                            OnTileClicked?.Invoke(hexCoords);
                             Debug.Log($"InputHandler: Clicked tile {hexCoords} (plane intersection)");
+                            OnTileClicked?.Invoke(hexCoords);
                         }
                     }
                 }
