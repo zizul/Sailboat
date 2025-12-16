@@ -35,7 +35,7 @@ namespace SailboatGame.UI
         private float currentProgress;
         private string currentStage;
 
-        private void Start()
+        private void Awake()
         {
             // Setup button listeners
             if (map1Button != null)
